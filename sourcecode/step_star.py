@@ -36,6 +36,22 @@ def entry_point_star(pg_conn,project_name, pipeline_id,task_id,next_task_id,run_
         print('LAST step')
 
 
+def checkoutput(dir_output,sample_id):
+    filename= '{}/{}Log.out'.format(dir_output,sample_id)
+    try:
+        fp = open(filename)
+        alllines=fp.readlines()
+        last = alllines[-1].strip('\n')
+        if(last == 'ALL DONE!'):
+            return 1
+        else:
+            return -1
+    except Exception as e:
+        print(e)
+        exit()
+
+
+
 def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_table,path,command,output_folder,run_dry=True,resetquery=True,one_sample=True):
 
 
@@ -142,32 +158,43 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
 
         date=datetime.datetime.today().strftime('%Y-%m-%d')
 
-        query_update= sample_update_add_process %(current_table,'done',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, filename_input,task_id)
-        query_check = sample_selection % (current_table,pipeline_id, 'pending',task_id)
-
-        if(run_dry):
-            print(query_update)
-            print(query_check)
+        #CHECK OUTPUT MAKE SENSE
+        if(not run_dry):
+            checkfile_result=checkoutput(dir_output,sample_id)
         else:
-            pg_conn.execute(query_update)
+            checkfile_result = 1
 
-        samples = pg_conn.execute(query_check).fetchall()
-        #ADD SAMPLE TO PICARD1
-        #INSERT OR UPDATE
-        run_time_next = 0
-        query_insert = query_insert_next_step % (next_table, pipeline_id,next_task_id,sample_id, dir_output, filename_output,'null','null','pending', date, run_time_next, trimmed_quality)
-        query_update = query_update_next_step % (next_table,dir_output, filename_output,'null','null','pending', date, run_time_next,trimmed_quality ,filename_output,pipeline_id,next_task_id,sample_id)
-        if(run_dry):
-            print(query_insert)
-            print(query_update)
-        else:
-            try:
-                pg_conn.execute(query_insert)
-            except Exception as e:
+        if(checkfile_result == 1):
+            query_update= sample_update_add_process %(current_table,'done',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, filename_input,task_id)
+            if(run_dry):
+                print(query_update)
+            else:
+                pg_conn.execute(query_update)
+            #ADD SAMPLE TO PICARD1
+            #INSERT OR UPDATE
+            run_time_next = 0
+            query_insert = query_insert_next_step % (next_table, pipeline_id,next_task_id,sample_id, dir_output, filename_output,'null','null','pending', date, run_time_next, trimmed_quality)
+            query_update = query_update_next_step % (next_table,dir_output, filename_output,'null','null','pending', date, run_time_next,trimmed_quality ,filename_output,pipeline_id,next_task_id,sample_id)
+            if(run_dry):
+                print(query_insert)
+                print(query_update)
+            else:
                 try:
-                    pg_conn.execute(query_update)
+                    pg_conn.execute(query_insert)
                 except Exception as e:
-                    print(e)
+                    try:
+                        pg_conn.execute(query_update)
+                    except Exception as e:
+                        print(e)
+        else:
+            query_update= sample_update_add_process %(current_table,'error',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, filename_input,task_id)
+            if(run_dry):
+                print(query_update)
+            else:
+                pg_conn.execute(query_update)
+
+        query_check = sample_selection % (current_table,pipeline_id, 'pending',task_id)
+        samples = pg_conn.execute(query_check).fetchall()
 
         if(one_sample):
             break
