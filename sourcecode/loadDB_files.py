@@ -36,23 +36,36 @@ def main(project,path,end_type,cmd=False):
             print(test_dir)
             for sample in os.listdir(test_dir):
                 print(sample)
-                filenames = os.listdir(os.path.join(test_dir, sample))
-                for filename in filenames:
-                    substrings = filename.split('.')
-                    if(len(substrings) > 1):
-                        if(substrings[-1] == 'fastq' or (substrings[-2] == 'fastq' and substrings[-1] == 'gz')):
+                filenames = [filename for filename in os.listdir(os.path.join(test_dir, sample)) if(not os.path.isdir(os.path.join(test_dir,sample,filename)) and
+                (filename.split('.')[-1] == 'fastq' or (filename.split('.')[-2] == 'fastq' and filename.split('.')[-1] == 'gz')))]
 
-                            full_filename = os.path.join(test_dir,sample,filename)
-                            filesize = round(os.path.getsize(full_filename)/float(1024*1024*1024),2)
-                            query = insert_template % (sample, filename,test_dir,filesize, project, end_type)
-                            try:
-                                print(filename)
-                                print(query)
-                                pg_conn.execute(query)
-                            except Exception as e:
-                                print(e)
-                                print('SAMPLE ALREADY INCLUDED')
-                                exit()
+                #check if exist concat
+                filenames_tmp = []
+                for filename in filenames:
+                    if(filename.find('conc')==-1):
+                        filenames_tmp.append(filename)
+                    else:
+                        filenames_tmp= [filename]
+                        break
+                # print(len(filenames_tmp))
+                for filename in filenames_tmp:
+
+                    if(not os.path.isdir(os.path.join(test_dir,sample,filename))):
+                        substrings = filename.split('.')
+                        if(len(substrings) > 1):
+                            if(substrings[-1] == 'fastq' or (substrings[-2] == 'fastq' and substrings[-1] == 'gz')):
+
+                                full_filename = os.path.join(test_dir,sample,filename)
+                                filesize = round(os.path.getsize(full_filename)/float(1024*1024*1024),2)
+                                query = insert_template % (sample, filename,test_dir,filesize, project, end_type)
+                                try:
+                                    print(filename)
+                                    print(query)
+                                    pg_conn.execute(query)
+                                except Exception as e:
+                                    print(e)
+                                    print('SAMPLE ALREADY INCLUDED')
+                                    exit()
 
                             #ADD ON DB
                             #DUMMY WAY BUT I AM NOT EXPECTING HUNDREADS OF INSERT
@@ -60,13 +73,13 @@ def main(project,path,end_type,cmd=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--project' ,required=True ,help='provide the project name which will stored in the db and create the folder in our server')
-    parser.add_argument('--credential' ,help='required when add new samples')
+    # parser.add_argument('--credential' ,help='required when add new samples')
     parser.add_argument('--path' ,help='required when add new samples')
     parser.add_argument('--end' ,help='type sequencing single or double')
-    parser.add_argument('--mv', default=False, required=True,help='move file into new directory ')
+    # parser.add_argument('--mv', default=False, required=True,help='move file into new directory ')
     args = parser.parse_args()
 
     project_name = args.project
-    print(args.mv)
-    main(project_name,args.path,args.end ,args.mv)
+    # print(args.mv)
+    main(project_name,args.path,args.end)
 

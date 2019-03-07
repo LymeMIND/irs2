@@ -147,17 +147,7 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
 
         elapse=time.time() - start_time
         print(elapse)
-
-        src_filename='{}/{}'.format(dir_output,tmp_filename)
-        dst_filename='{}/{}'.format(dir_output,filename_output)
-
-        if(run_dry):
-            print('RENAME')
-        else:
-            os.rename(src_filename,dst_filename)
-
         date=datetime.datetime.today().strftime('%Y-%m-%d')
-
         #CHECK OUTPUT MAKE SENSE
         if(not run_dry):
             checkfile_result=checkoutput(dir_output,sample_id)
@@ -165,6 +155,13 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
             checkfile_result = 1
 
         if(checkfile_result == 1):
+            src_filename='{}/{}'.format(dir_output,tmp_filename)
+            dst_filename='{}/{}'.format(dir_output,filename_output)
+            if(run_dry):
+                print('RENAME')
+            else:
+                os.rename(src_filename,dst_filename)
+
             query_update= sample_update_add_process %(current_table,'done',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, filename_input,task_id)
             if(run_dry):
                 print(query_update)
