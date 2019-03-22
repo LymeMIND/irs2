@@ -14,7 +14,14 @@ import time
 from sqlalchemy import create_engine
 import argparse
 
-def main(project,path,end_type,cmd=False):
+# def test(project,path,end_type,cmd):
+#     print('FUNCTION')
+#     print(project)
+#     print(path)
+#     print(end_type)
+#     print(cmd)
+
+def update_database_file(project,path,end_type,cmd=False):
     print('main')
     pg_user             = os.environ.get('DB_USER_LYME')
     pg_password         = os.environ['DB_PASSWORD_LYME']
@@ -26,49 +33,48 @@ def main(project,path,end_type,cmd=False):
     dirs= [ os.path.join(path, name) for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
     print(dirs)
 
-    insert_template = 'INSERT INTO file_info (sample_id, filename, directory, file_size, project_name, end_type)'\
+    insert_template = 'INSERT INTO file_info (sample_id, filename, directory, file_size, project_code, end_type)'\
     ' VALUES (\'%s\',\'%s\',\'%s\',%f,\'%s\',\'%s\');'
 
-    for name_dir in dirs:
+    # for name_dir in dirs:
         #THIS IS LYME ORIENTED. THE OTHER MUST FOLLOW OUR
-        test_dir = os.path.join(name_dir,'Raw')
-        if(os.path.isdir(test_dir)):
-            print(test_dir)
-            for sample in os.listdir(test_dir):
-                print(sample)
-                filenames = [filename for filename in os.listdir(os.path.join(test_dir, sample)) if(not os.path.isdir(os.path.join(test_dir,sample,filename)) and
-                (filename.split('.')[-1] == 'fastq' or (filename.split('.')[-2] == 'fastq' and filename.split('.')[-1] == 'gz')))]
+    test_dir = os.path.join(path,'Raw')
+    if(os.path.isdir(test_dir)):
+        print(test_dir)
+        for sample in os.listdir(test_dir):
+            print(sample)
+            filenames = [filename for filename in os.listdir(os.path.join(test_dir, sample)) if(not os.path.isdir(os.path.join(test_dir,sample,filename)) and
+            (filename.split('.')[-1] == 'fastq' or (filename.split('.')[-2] == 'fastq' and filename.split('.')[-1] == 'gz')))]
 
-                #check if exist concat
-                filenames_tmp = []
-                for filename in filenames:
-                    if(filename.find('conc')==-1):
-                        filenames_tmp.append(filename)
-                    else:
-                        filenames_tmp= [filename]
-                        break
-                # print(len(filenames_tmp))
-                for filename in filenames_tmp:
+            #check if exist concat
+            filenames_tmp = []
+            for filename in filenames:
+                if(filename.find('conc')==-1):
+                    filenames_tmp.append(filename)
+                else:
+                    filenames_tmp= [filename]
+                    break
+            # print(len(filenames_tmp))
+            for filename in filenames_tmp:
+                if(not os.path.isdir(os.path.join(test_dir,sample,filename))):
+                    substrings = filename.split('.')
+                    if(len(substrings) > 1):
+                        if(substrings[-1] == 'fastq' or (substrings[-2] == 'fastq' and substrings[-1] == 'gz')):
 
-                    if(not os.path.isdir(os.path.join(test_dir,sample,filename))):
-                        substrings = filename.split('.')
-                        if(len(substrings) > 1):
-                            if(substrings[-1] == 'fastq' or (substrings[-2] == 'fastq' and substrings[-1] == 'gz')):
+                            full_filename = os.path.join(test_dir,sample,filename)
+                            filesize = round(os.path.getsize(full_filename)/float(1024*1024*1024),2)
+                            query = insert_template % (sample, filename,test_dir,filesize, project, end_type)
+                            try:
+                                print(filename)
+                                print(query)
+                                pg_conn.execute(query)
+                            except Exception as e:
+                                print(e)
+                                print('SAMPLE ALREADY INCLUDED')
+                                return -1
+                                # exit()
 
-                                full_filename = os.path.join(test_dir,sample,filename)
-                                filesize = round(os.path.getsize(full_filename)/float(1024*1024*1024),2)
-                                query = insert_template % (sample, filename,test_dir,filesize, project, end_type)
-                                try:
-                                    print(filename)
-                                    print(query)
-                                    pg_conn.execute(query)
-                                except Exception as e:
-                                    print(e)
-                                    print('SAMPLE ALREADY INCLUDED')
-                                    exit()
-
-                            #ADD ON DB
-                            #DUMMY WAY BUT I AM NOT EXPECTING HUNDREADS OF INSERT
+    return 1
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -81,5 +87,5 @@ if __name__ == '__main__':
 
     project_name = args.project
     # print(args.mv)
-    main(project_name,args.path,args.end)
+    update_database_file(project_name,args.path,args.end)
 
