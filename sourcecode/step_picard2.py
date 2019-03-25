@@ -25,6 +25,11 @@ def entry_point_picard2(pg_conn,project_name ,pipeline_id,task_id,next_task_id,r
     output_directory    = results_task_query[0][2]
     current_table_name  = results_task_query[0][3]
 
+
+    output_directory = ('{}/{}').format(output_directory, project_code)
+    if(not os.path.exists(output_directory)):
+        os.mkdir(output_directory)
+
     if(next_task_id != -1):
 
         query = select_info_task % (next_task_id)

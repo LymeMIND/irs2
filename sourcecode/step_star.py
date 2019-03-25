@@ -7,7 +7,7 @@ import argparse
 
 
 
-def entry_point_star(pg_conn,project_name, pipeline_id,task_id,next_task_id,run_dry=True,resetquery=True,one_sample=True):
+def entry_point_star(pg_conn,project_code, pipeline_id,task_id,next_task_id,run_dry=True,resetquery=True,one_sample=True):
 
     select_option_task  = 'SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;'
     select_info_task    ='SELECT path,command, output_directory,table_name FROM task WHERE task_id=%d'
@@ -25,6 +25,11 @@ def entry_point_star(pg_conn,project_name, pipeline_id,task_id,next_task_id,run_
     output_directory    = results_task_query[0][2]
     current_table_name  = results_task_query[0][3]
 
+
+    #CHECK IF EXIST
+    output_directory = ('{}/{}').format(output_directory, project_code)
+    if(not os.path.exists(output_directory)):
+        os.mkdir(output_directory)
 
     if(next_task_id != -1):
         query = select_info_task % (next_task_id)
@@ -66,6 +71,8 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
     sample_selection          = 'SELECT Distinct sample_id, dir_input,filename_input, end_type,qc,trimmed_quality '\
                           'FROM %s '\
                           'WHERE pipeline_id=%d AND status=\'%s\' AND task_id=\'%s\' ORDER BY sample_id LIMIT 1'
+
+    query_select_paired = 'SELECT filename_input FROM %s WHERE pipeline_id=%d AND task_id%d AND sample_id=\'%s\''
 
     sample_update_process       = 'UPDATE %s SET status=\'%s\' '\
                                 'WHERE  pipeline_id=%d AND sample_id=\'%s\' AND filename_input=\'%s\' AND task_id=%d'
@@ -133,8 +140,12 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
             options_change  = '--readFilesIn {input} --outFileNamePrefix {output}'.format(input=samplefile,output=output_samplefile)
         else:
             dir2check = ('%s/%s') % (dir_input,sample_id)
-            filenames = [ os.path.join(dir2check, name) for name in os.listdir(dir2check) if os.path.isdir(os.path.join(dir2check, name))]
-            options_change  = '--readFilesIn {input1},{input2} --outFileNamePrefix {output}'.format(input1=samplefile,input2=samplefile2,output=output_samplefile)
+            query2run = query_select_paired %(pipeline_id,task_id,sample_id)
+            samples_paired = pg_conn.execute(query2run).fetchall()
+            filenames = [ ]
+            for ff in samples_paired:
+                filenames.append(os.path.join(dir2check, ff[0]))
+            options_change  = '--readFilesIn {input1},{input2} --outFileNamePrefix {output}'.format(input1=filenames[0],input2=filenames[1],output=output_samplefile)
 
         sample2run=' '.join([sample2run, options_change])
 
@@ -212,7 +223,7 @@ if __name__ == '__main__':
     parser.add_argument('--next_task',required=True ,help='next task to run')
     args = parser.parse_args()
 
-    project = args.project
+    project_code    = args.project
     pipeline_id     = int(args.pipeline)
     task_id         = int(args.task)
     next_task_id    = int(args.next_task)
@@ -223,5 +234,5 @@ if __name__ == '__main__':
     pg_conn_str         = 'postgresql://' + pg_user + ':' + pg_password + '@' + pg_host + ':5432/rnaseq_manager'
     pg_conn             = create_engine(pg_conn_str, echo=False, paramstyle='format', pool_recycle=1800)
 
-    entry_point_star(pg_conn,project,pipeline_id ,task_id ,next_task_id,run_dry=False,resetquery=True,one_sample=True)
+    entry_point_star(pg_conn,project_code,pipeline_id ,task_id ,next_task_id,run_dry=False,resetquery=True,one_sample=True)
 
