@@ -1,30 +1,3 @@
-
-
-
-
-
-
-
-
-#CREATE EVERYTHING!!!!
-# def fastqc(path2check):
-#     folders = glob.glob(path2check+'/*')
-#     # print(folders)
-#     ctrl = 0
-#     dirname = '/data2/projects/IPF_YALE/RNAseq/FASTQC_check'
-#     path_fastqc='/data1/software/FastQC_0.11.8/FastQC'
-#     for folder in sorted(folders):
-#         if(folder.split('/')[-1] == 'Sample_18b'):
-#             files =glob.glob(folder+'/*.gz')
-#             print(folder.split('/')[-1])
-#             ss= '{}/fastqc {} --threads 4 -o {}'.format (path_fastqc,' '.join(files),dirname )
-#             print(ss)
-#             input('press to continue')
-#             os.system(ss)
-# if __name__ == '__main__':
-    # fastqc(path2check='/data2/projects/IPF_YALE/RNAseq/FASTQ/raw')
-
-
 from sqlalchemy import create_engine
 import os
 import time
@@ -93,8 +66,8 @@ def step_fastqc(pg_conn,pipeline_id,task_id,next_task_id, current_table,next_tab
 
 
 
-    query_insert_next_step = 'INSERT INTO %s (pipeline_id,task_id,sample_id,dir_input,filename_input,dir_output,filename_output,status,date, run_time, trimmed_quality, end_type ) '\
-    'VALUES(%d,%d,\'%s\',\'%s\',\'%s\',\'%s\',\'%s\',\'%s\',\'%s\',%d,%d, \'%s\')'
+    query_insert_next_step = 'INSERT INTO %s (pipeline_id,task_id,sample_id,dir_input,filename_input,dir_output,filename_output,status,date, run_time, trimmed_quality, end_type,qc ) '\
+    'VALUES(%d,%d,\'%s\',\'%s\',\'%s\',\'%s\',\'%s\',\'%s\',\'%s\',%d,%d, \'%s\', \'passed\')'
     query_update_next_step = 'UPDATE  %s SET dir_input=\'%s\', filename_input=\'%s\', dir_output=\'%s\', filename_output=\'%s\','\
             ' status=\'%s\' ,date=\'%s\',run_time=\'%s\', trimmed_quality=%d WHERE filename_input=\'%s\' AND pipeline_id=%d AND task_id=%d AND sample_id=\'%s\''
 

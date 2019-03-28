@@ -92,6 +92,7 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
     query = sample_selection %(current_table,pipeline_id, 'pending',task_id)
     samples = pg_conn.execute(query).fetchall()
     while(len(samples) > 0):
+        ctrl = 0
         sample = samples[0]
 
         sample_id       = sample[0]
@@ -107,102 +108,103 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
 
         if(qc == 'passed'):
             dir_output=('%s/%s') % (output_folder, sample_id)
+            ctrl = 1
         elif(qc =='trimmed'):
             dir_output = ('%s/%s_trimmed_q%d') % (output_folder, sample_id,trimmed_quality)
-        else:
-            exit()
+            ctrl = 1
 
-        if(not os.path.exists(dir_output)):
-            try:
-                os.mkdir(dir_output)
-            except OSError:
-                print ("Creation of the directory %s failed" % dir_output)
-            else:
-                print ("Successfully created the directory %s " % dir_output)
-        else:
-            print('Directory:%s ALREADY EXIST' % dir_output)
-
-        query=sample_update_process %(current_table, 'running',pipeline_id,sample_id, filename_input,task_id)
-
-        if(run_dry):
-            print(query)
-        else:
-            pg_conn.execute(query)
-
-        filename_output = '{}Aligned.sortedByCoord.out_q{}.bam'.format(sample_id,trimmed_quality)
-        tmp_filename    = '{}Aligned.sortedByCoord.out.bam'.format(sample[0])
-
-        output_samplefile = '{}/{}'.format(dir_output,sample[0])
-        sample2run = ' '.join([task_program, options_template])
-
-        #TO CHANGE!
-        if(end_type =='single'):
-            options_change  = '--readFilesIn {input} --outFileNamePrefix {output}'.format(input=samplefile,output=output_samplefile)
-        else:
-            dir2check = ('%s/%s') % (dir_input,sample_id)
-            query2run = query_select_paired %(pipeline_id,task_id,sample_id)
-            samples_paired = pg_conn.execute(query2run).fetchall()
-            filenames = [ ]
-            for ff in samples_paired:
-                filenames.append(os.path.join(dir2check, ff[0]))
-            options_change  = '--readFilesIn {input1},{input2} --outFileNamePrefix {output}'.format(input1=filenames[0],input2=filenames[1],output=output_samplefile)
-
-        sample2run=' '.join([sample2run, options_change])
-
-        start_time = time.time()
-        print(sample2run)
-
-        if(not run_dry):
-            os.system(sample2run)
-
-
-        elapse=time.time() - start_time
-        print(elapse)
-        date=datetime.datetime.today().strftime('%Y-%m-%d')
-        #CHECK OUTPUT MAKE SENSE
-        if(not run_dry):
-            checkfile_result=checkoutput(dir_output,sample_id)
-        else:
-            checkfile_result = 1
-
-        if(checkfile_result == 1):
-            src_filename='{}/{}'.format(dir_output,tmp_filename)
-            dst_filename='{}/{}'.format(dir_output,filename_output)
-            if(run_dry):
-                print('RENAME')
-            else:
-                os.rename(src_filename,dst_filename)
-
-            query_update= sample_update_add_process %(current_table,'done',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, filename_input,task_id)
-            if(run_dry):
-                print(query_update)
-            else:
-                pg_conn.execute(query_update)
-            #ADD SAMPLE TO PICARD1
-            #INSERT OR UPDATE
-            run_time_next = 0
-            query_insert = query_insert_next_step % (next_table, pipeline_id,next_task_id,sample_id, dir_output, filename_output,'null','null','pending', date, run_time_next, trimmed_quality)
-            query_update = query_update_next_step % (next_table,dir_output, filename_output,'null','null','pending', date, run_time_next,trimmed_quality ,filename_output,pipeline_id,next_task_id,sample_id)
-            if(run_dry):
-                print(query_insert)
-                print(query_update)
-            else:
+        if(ctrl == 1):
+            if(not os.path.exists(dir_output)):
                 try:
-                    pg_conn.execute(query_insert)
-                except Exception as e:
-                    try:
-                        pg_conn.execute(query_update)
-                    except Exception as e:
-                        print(e)
-        else:
-            query_update= sample_update_add_process %(current_table,'error',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, filename_input,task_id)
-            if(run_dry):
-                print(query_update)
+                    os.mkdir(dir_output)
+                except OSError:
+                    print ("Creation of the directory %s failed" % dir_output)
+                else:
+                    print ("Successfully created the directory %s " % dir_output)
             else:
-                pg_conn.execute(query_update)
+                print('Directory:%s ALREADY EXIST' % dir_output)
 
-        query_check = sample_selection % (current_table,pipeline_id, 'pending',task_id)
-        samples = pg_conn.execute(query_check).fetchall()
+            query=sample_update_process %(current_table, 'running',pipeline_id,sample_id, filename_input,task_id)
+
+            if(run_dry):
+                print(query)
+            else:
+                pg_conn.execute(query)
+
+            filename_output = '{}Aligned.sortedByCoord.out_q{}.bam'.format(sample_id,trimmed_quality)
+            tmp_filename    = '{}Aligned.sortedByCoord.out.bam'.format(sample[0])
+
+            output_samplefile = '{}/{}'.format(dir_output,sample[0])
+            sample2run = ' '.join([task_program, options_template])
+
+            #TO CHANGE!
+            if(end_type =='single'):
+                options_change  = '--readFilesIn {input} --outFileNamePrefix {output}'.format(input=samplefile,output=output_samplefile)
+            else:
+                dir2check = ('%s/%s') % (dir_input,sample_id)
+                query2run = query_select_paired %(pipeline_id,task_id,sample_id)
+                samples_paired = pg_conn.execute(query2run).fetchall()
+                filenames = [ ]
+                for ff in samples_paired:
+                    filenames.append(os.path.join(dir2check, ff[0]))
+                options_change  = '--readFilesIn {input1},{input2} --outFileNamePrefix {output}'.format(input1=filenames[0],input2=filenames[1],output=output_samplefile)
+
+            sample2run=' '.join([sample2run, options_change])
+
+            start_time = time.time()
+            print(sample2run)
+
+            if(not run_dry):
+                os.system(sample2run)
+
+
+            elapse=time.time() - start_time
+            print(elapse)
+            date=datetime.datetime.today().strftime('%Y-%m-%d')
+            #CHECK OUTPUT MAKE SENSE
+            if(not run_dry):
+                checkfile_result=checkoutput(dir_output,sample_id)
+            else:
+                checkfile_result = 1
+
+            if(checkfile_result == 1):
+                src_filename='{}/{}'.format(dir_output,tmp_filename)
+                dst_filename='{}/{}'.format(dir_output,filename_output)
+                if(run_dry):
+                    print('RENAME')
+                else:
+                    os.rename(src_filename,dst_filename)
+
+                query_update= sample_update_add_process %(current_table,'done',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, filename_input,task_id)
+                if(run_dry):
+                    print(query_update)
+                else:
+                    pg_conn.execute(query_update)
+                #ADD SAMPLE TO PICARD1
+                #INSERT OR UPDATE
+                run_time_next = 0
+                query_insert = query_insert_next_step % (next_table, pipeline_id,next_task_id,sample_id, dir_output, filename_output,'null','null','pending', date, run_time_next, trimmed_quality)
+                query_update = query_update_next_step % (next_table,dir_output, filename_output,'null','null','pending', date, run_time_next,trimmed_quality ,filename_output,pipeline_id,next_task_id,sample_id)
+                if(run_dry):
+                    print(query_insert)
+                    print(query_update)
+                else:
+                    try:
+                        pg_conn.execute(query_insert)
+                    except Exception as e:
+                        try:
+                            pg_conn.execute(query_update)
+                        except Exception as e:
+                            print(e)
+            else:
+                query_update= sample_update_add_process %(current_table,'error',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, filename_input,task_id)
+                if(run_dry):
+                    print(query_update)
+                else:
+                    pg_conn.execute(query_update)
+
+            query_check = sample_selection % (current_table,pipeline_id, 'pending',task_id)
+            samples = pg_conn.execute(query_check).fetchall()
 
         if(one_sample):
             break

@@ -5,7 +5,7 @@ import datetime
 
 import argparse
 
-def entry_point_picard2(pg_conn,project_name ,pipeline_id,task_id,next_task_id,run_dry=True,resetquery=True,one_sample=True):
+def entry_point_picard2(pg_conn,project_code ,pipeline_id,task_id,next_task_id,run_dry=True,resetquery=True,one_sample=True):
 
     select_option_task  = 'SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;'
     select_info_task    ='SELECT path,command, output_directory, table_name FROM task WHERE task_id=%d'
@@ -96,12 +96,20 @@ def step_picard(pg_conn,pipeline_id,task_id,next_task_id,current_table_name, nex
             filename_output = '{}_trimmed_q{}_'.format(sample_id,trimmed_quality ,suffix)
 
         full_filename_output = '{}/{}'.format(dir_output,filename_output)
-        try:
-            os.mkdir(dir_output)
-        except OSError:
-            print ("Creation of the directory %s failed" % dir_output)
+
+
+
+        if(not os.path.exists(dir_output)):
+            try:
+                os.mkdir(dir_output)
+            except OSError:
+                print ("Creation of the directory %s failed" % dir_output)
+            else:
+                print ("Successfully created the directory %s " % dir_output)
         else:
-            print ("Successfully created the directory %s " % dir_output)
+            print('Directory:%s ALREADY EXIST' % dir_output)
+
+
 
 
         query=sample_update_process %(current_table_name,'running',pipeline_id,sample_id, filename_input,task_id)
