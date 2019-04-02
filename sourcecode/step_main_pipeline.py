@@ -34,7 +34,6 @@ def run_pipeline(project_code, pipeline_id,run_dry=True,resetquery=True,one_samp
     # if(len(pipeline_info) == 1):
         # project_name = pipeline_info[0][0]
     for current_task in task2performe:
-
         if(current_task[1] == -1):
             last_task = current_task
         else:

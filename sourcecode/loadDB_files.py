@@ -36,9 +36,7 @@ def update_database_file(project,path,end_type,cmd=False):
     insert_template = 'INSERT INTO file_info (sample_id, filename, directory, file_size, project_code, end_type)'\
     ' VALUES (\'%s\',\'%s\',\'%s\',%f,\'%s\',\'%s\');'
 
-    # for name_dir in dirs:
-        #THIS IS LYME ORIENTED. THE OTHER MUST FOLLOW OUR
-    test_dir = os.path.join(path,'Raw')
+    test_dir = path
     if(os.path.isdir(test_dir)):
         print(test_dir)
         for sample in os.listdir(test_dir):
@@ -66,10 +64,8 @@ def update_database_file(project,path,end_type,cmd=False):
                             query = insert_template % (sample, filename,test_dir,filesize, project, end_type)
                             try:
                                 print(filename)
-                                print(query)
                                 pg_conn.execute(query)
                             except Exception as e:
-                                print(e)
                                 print('SAMPLE ALREADY INCLUDED')
                                 return -1
                                 # exit()

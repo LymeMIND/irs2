@@ -57,7 +57,7 @@ def step_fastqc(pg_conn,pipeline_id,task_id,next_task_id, current_table,next_tab
                           'FROM %s '\
                           'WHERE pipeline_id=%d AND task_id=%d AND status=\'%s\'  ORDER BY sample_id LIMIT 1'
 
-    query_select_paired = 'SELECT filename_input FROM %s WHERE pipeline_id=%d AND task_id%d AND sample_id=\'%s\''
+    query_select_paired = 'SELECT filename_input FROM %s WHERE pipeline_id=%d AND task_id=%d AND sample_id=\'%s\' '
 
     sample_update_process       = 'UPDATE %s SET status=\'%s\' '\
                                 'WHERE  pipeline_id=%d AND sample_id=\'%s\' AND filename_input=\'%s\' AND task_id=%d'
@@ -106,7 +106,7 @@ def step_fastqc(pg_conn,pipeline_id,task_id,next_task_id, current_table,next_tab
         else:
             dir2check = ('%s/%s') % (dir_input,sample_id)
 
-            query2run = query_select_paired %(pipeline_id,task_id,sample_id)
+            query2run = query_select_paired %( current_table,pipeline_id,task_id,sample_id)
             samples_paired = pg_conn.execute(query2run).fetchall()
             filenames_input = []
             only_filename   = []

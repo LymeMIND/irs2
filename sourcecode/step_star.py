@@ -72,7 +72,7 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
                           'FROM %s '\
                           'WHERE pipeline_id=%d AND status=\'%s\' AND task_id=\'%s\' ORDER BY sample_id LIMIT 1'
 
-    query_select_paired = 'SELECT filename_input FROM %s WHERE pipeline_id=%d AND task_id%d AND sample_id=\'%s\''
+    query_select_paired = 'SELECT filename_input FROM %s WHERE pipeline_id=%d AND task_id=%d AND sample_id=\'%s\''
 
     sample_update_process       = 'UPDATE %s SET status=\'%s\' '\
                                 'WHERE  pipeline_id=%d AND sample_id=\'%s\' AND filename_input=\'%s\' AND task_id=%d'
@@ -124,12 +124,7 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
             else:
                 print('Directory:%s ALREADY EXIST' % dir_output)
 
-            query=sample_update_process %(current_table, 'running',pipeline_id,sample_id, filename_input,task_id)
 
-            if(run_dry):
-                print(query)
-            else:
-                pg_conn.execute(query)
 
             filename_output = '{}Aligned.sortedByCoord.out_q{}.bam'.format(sample_id,trimmed_quality)
             tmp_filename    = '{}Aligned.sortedByCoord.out.bam'.format(sample[0])
@@ -139,14 +134,25 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
 
             #TO CHANGE!
             if(end_type =='single'):
+                query=sample_update_process %(current_table, 'running',pipeline_id,sample_id, filename_input,task_id)
+                if(run_dry):
+                    print(query)
+                else:
+                    pg_conn.execute(query)
                 options_change  = '--readFilesIn {input} --outFileNamePrefix {output}'.format(input=samplefile,output=output_samplefile)
             else:
                 dir2check = ('%s/%s') % (dir_input,sample_id)
-                query2run = query_select_paired %(pipeline_id,task_id,sample_id)
+                query2run = query_select_paired %(current_table, pipeline_id,task_id,sample_id)
                 samples_paired = pg_conn.execute(query2run).fetchall()
                 filenames = [ ]
                 for ff in samples_paired:
                     filenames.append(os.path.join(dir2check, ff[0]))
+                    query=sample_update_process %(current_table, 'running',pipeline_id,sample_id, ff[0],task_id)
+                    if(run_dry):
+                        print(query)
+                    else:
+                        pg_conn.execute(query)
+
                 options_change  = '--readFilesIn {input1},{input2} --outFileNamePrefix {output}'.format(input1=filenames[0],input2=filenames[1],output=output_samplefile)
 
             sample2run=' '.join([sample2run, options_change])
@@ -175,11 +181,21 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
                 else:
                     os.rename(src_filename,dst_filename)
 
-                query_update= sample_update_add_process %(current_table,'done',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, filename_input,task_id)
-                if(run_dry):
-                    print(query_update)
-                else:
-                    pg_conn.execute(query_update)
+
+                if(end_type =='single'):
+                    query_update= sample_update_add_process %(current_table,'done',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, filename_input,task_id)
+                    if(run_dry):
+                        print(query_update)
+                    else:
+                        pg_conn.execute(query_update)
+                elif(end_type =='double'):
+                    for ff in filenames:
+                        query_update= sample_update_add_process %(current_table,'done',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, ff,task_id)
+                        if(run_dry):
+                            print(query_update)
+                        else:
+                            pg_conn.execute(query_update)
+
                 #ADD SAMPLE TO PICARD1
                 #INSERT OR UPDATE
                 run_time_next = 0
@@ -197,6 +213,7 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
                         except Exception as e:
                             print(e)
             else:
+
                 query_update= sample_update_add_process %(current_table,'error',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, filename_input,task_id)
                 if(run_dry):
                     print(query_update)
