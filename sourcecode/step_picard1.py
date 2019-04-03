@@ -125,8 +125,6 @@ def step_picard(pg_conn,pipeline_id,task_id,next_task_id,current_table_name, nex
 
         sample2run=' '.join([sample2run, options_change])
         start_time = time.time()
-        print(sample2run)
-
         if(not run_dry):
             os.system(sample2run)
 

@@ -1,11 +1,3 @@
-# project name
-# credential
-#options more or already in place
-
-
-#template ./project_name/sample_id/files_fastq
-#the golden MUST BE associated with the clinical data!!!
-
 import pandas as pd
 import os
 import glob
@@ -14,15 +6,7 @@ import time
 from sqlalchemy import create_engine
 import argparse
 
-# def test(project,path,end_type,cmd):
-#     print('FUNCTION')
-#     print(project)
-#     print(path)
-#     print(end_type)
-#     print(cmd)
-
 def update_database_file(project,path_samples,end_type,server_path,cmd=False):
-    print('main')
     pg_user             = os.environ.get('DB_USER_LYME')
     pg_password         = os.environ['DB_PASSWORD_LYME']
     pg_host             = os.environ['DB_HOST_LYME']
@@ -30,15 +14,23 @@ def update_database_file(project,path_samples,end_type,server_path,cmd=False):
     pg_conn             = create_engine(pg_conn_str, echo=False, paramstyle='format', pool_recycle=1800)
 
 
-    dirs= [ os.path.join(path, name) for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
-    print(dirs)
+    ###
+    #MAGIC STRING IT SHOULDN'T BE HERE
+    ##
+
+    server_path = '/la-forge/data2_projects/'
+
+    dirs= [ os.path.join(path_samples, name) for name in os.listdir(path_samples) if os.path.isdir(os.path.join(path_samples, name))]
+
 
     insert_template = 'INSERT INTO file_info (sample_id, filename, directory, file_size, project_code, end_type)'\
     ' VALUES (\'%s\',\'%s\',\'%s\',%f,\'%s\',\'%s\');'
 
 
     dirprefix= '/{}/'.format(path_samples.replace(server_path,''))
-
+    print(dirprefix)
+    print(server_path)
+    print(path_samples)
     if(os.path.isdir(path_samples)):
         for sample in os.listdir(path_samples):
             filenames = [filename for filename in os.listdir(os.path.join(path_samples, sample)) if(not os.path.isdir(os.path.join(path_samples,sample,filename)) and

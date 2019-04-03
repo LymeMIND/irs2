@@ -2,6 +2,8 @@ from sqlalchemy import create_engine
 import os
 import argparse
 
+import time
+
 ###
 ##AUTOGENERATE
 # INTERNAL LIBRARY
@@ -15,7 +17,7 @@ from step_features_count import entry_point_features_count
 ####
 
 
-def run_pipeline(project_code, pipeline_id,mount_point,run_dry=True,resetquery=True,one_sample=True):
+def run_pipeline(project_code, pipeline_id,mount_point,job_id='None',run_dry=True,resetquery=True,one_sample=True):
 
     pg_user             = os.environ.get('DB_USER_LYME')
     pg_password         = os.environ['DB_PASSWORD_LYME']
@@ -24,39 +26,60 @@ def run_pipeline(project_code, pipeline_id,mount_point,run_dry=True,resetquery=T
     pg_conn             = create_engine(pg_conn_str, echo=False, paramstyle='format', pool_recycle=1800)
     #read step for the pipeline
 
-    select_tasks_pipeline  = 'SELECT pipeline_run_task.task_id, next_task,sequence, func_name FROM pipeline_run_task INNER JOIN task ON pipeline_run_task.task_id = task.task_id '\
+    update_task_tmp ='UPDATE pipeline_jobs SET status=\'%s\', running_time=%d WHERE job_id=\'%s\' AND pipeline_id=%s'
+    select_tasks_pipeline  = 'SELECT pipeline_run_task.task_id, next_task,sequence, func_name, name FROM pipeline_run_task INNER JOIN task ON pipeline_run_task.task_id = task.task_id '\
     'WHERE pipeline_run_task.pipeline_id=%d ORDER BY sequence;' % (pipeline_id)
     task2performe=pg_conn.execute(select_tasks_pipeline).fetchall()
 
-    # select_project_name = 'SELECT sinai_id FROM pipeline WHERE pipeline_id = %d' % (pipeline_id)
-    # pipeline_info = pg_conn.execute(select_project_name).fetchall()
 
-    # if(len(pipeline_info) == 1):
-        # project_name = pipeline_info[0][0]
+    start_time = time.time()
+
+    if(job_id != 'None'):
+        status= 'started'
+        update_task = update_task_tmp % (status,0,job_id,pipeline_id)
+        pg_conn.execute(update_task)
+
     for current_task in task2performe:
         if(current_task[1] == -1):
             last_task = current_task
         else:
+
             task_id = current_task[0]
             next_task_id = current_task[1]
-            function_call = current_task[-1]
+            function_call = current_task[3]
+            name = current_task[-1]
+            elapse=time.time() - start_time
+            if(job_id != 'None'):
+                status= ('running {}').format(name)
+                update_task = update_task_tmp % (status,elapse,job_id,pipeline_id)
+                pg_conn.execute(update_task)
+
             print('########################')
             print(function_call)
             print('########################')
             globals()[function_call](pg_conn,project_code ,pipeline_id,task_id,next_task_id,mount_point,run_dry,resetquery,one_sample)
 
 
-
-    print(last_task)
-    function_call = last_task[-1]
     task_id = last_task[0]
     next_task_id = last_task[1]
+    function_call = last_task[3]
+    name = last_task[-1]
+
+    elapse=time.time() - start_time
+    if(job_id != 'None'):
+        status= ('running {}').format(name)
+        update_task = update_task_tmp % (status,elapse,job_id,pipeline_id)
+        pg_conn.execute(update_task)
     print('########################')
     print('performe last task')
     print(function_call)
     print('########################')
     globals()[function_call](pg_conn,project_code ,pipeline_id,task_id,next_task_id,mount_point,run_dry,resetquery,one_sample)
-
+    elapse=time.time() - start_time
+    if(job_id != 'None'):
+        status= 'done'
+        update_task = update_task_tmp % (status,elapse,job_id,pipeline_id)
+        pg_conn.execute(update_task)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
