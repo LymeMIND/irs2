@@ -5,7 +5,7 @@ import datetime
 
 import argparse
 
-def entry_point_picard2(pg_conn,project_code ,pipeline_id,task_id,next_task_id,run_dry=True,resetquery=True,one_sample=True):
+def entry_point_picard2(pg_conn,project_code ,pipeline_id,task_id,next_task_id,mount_point,run_dry=True,resetquery=True,one_sample=True):
 
     select_option_task  = 'SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;'
     select_info_task    ='SELECT path,command, output_directory, table_name FROM task WHERE task_id=%d'
@@ -22,11 +22,12 @@ def entry_point_picard2(pg_conn,project_code ,pipeline_id,task_id,next_task_id,r
 
     path                = results_task_query[0][0]
     command             = results_task_query[0][1]
-    output_directory    = results_task_query[0][2]
+    output_directory_db    = results_task_query[0][2]
     current_table_name  = results_task_query[0][3]
 
 
-    output_directory = ('{}/{}').format(output_directory, project_code)
+    output_directory_db = ('{}/{}').format(output_directory_db, project_code)
+    output_directory = ('{}{}').format(mount_point[:-1],output_directory_db)
     if(not os.path.exists(output_directory)):
         os.mkdir(output_directory)
 
@@ -35,13 +36,13 @@ def entry_point_picard2(pg_conn,project_code ,pipeline_id,task_id,next_task_id,r
         query = select_info_task % (next_task_id)
         results_task_query = pg_conn.execute(query).fetchall()
         next_table_name = results_task_query[0][3]
-        step_picard(pg_conn, pipeline_id,task_id,next_task_id,current_table_name, next_table_name, path, command,output_directory, run_dry,resetquery,one_sample)
+        step_picard(pg_conn, pipeline_id,task_id,next_task_id,current_table_name, next_table_name, path, command,output_directory,output_directory_db, mount_point, run_dry,resetquery,one_sample)
         #call the right function here!
     else:
         print('LAST step')
 
 
-def step_picard(pg_conn,pipeline_id,task_id,next_task_id,current_table_name, next_table_name, path, command,output_directory,run_dry=True,resetquery=True,one_sample=True):
+def step_picard(pg_conn,pipeline_id,task_id,next_task_id,current_table_name,next_table_name,path,command,output_directory,output_directory_db,mount_point,run_dry=True,resetquery=True,one_sample=True):
 
     select_option_star='SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;' % (task_id)
     options=pg_conn.execute(select_option_star).fetchall()
@@ -84,15 +85,17 @@ def step_picard(pg_conn,pipeline_id,task_id,next_task_id,current_table_name, nex
         filename_input  = sample[2]
         trimmed_quality = sample[3]
 
-        samplefile = '{dirinput}/{filename_input}'.format(dirinput=dir_input,filename_input=filename_input)
+        samplefile = '{mount_point}{dirinput}/{filename_input}'.format(mount_point=mount_point,dirinput=dir_input,filename_input=filename_input)
 
 
         if(trimmed_quality == 0):
             dir_output='{}/{}'.format(output_directory, sample_id)
+            dir_output_db='{}/{}'.format(output_directory_db, sample_id)
             filename_output = '{}_{}'.format(sample_id, suffix)
         else:
 
             dir_output='{}/{}_trimmed_q{}'.format(output_directory,sample_id ,trimmed_quality)
+            dir_output_db='{}/{}_trimmed_q{}'.format(output_directory_db,sample_id ,trimmed_quality)
             filename_output = '{}_trimmed_q{}_'.format(sample_id,trimmed_quality ,suffix)
 
         full_filename_output = '{}/{}'.format(dir_output,filename_output)
@@ -110,10 +113,7 @@ def step_picard(pg_conn,pipeline_id,task_id,next_task_id,current_table_name, nex
             print('Directory:%s ALREADY EXIST' % dir_output)
 
 
-
-
         query=sample_update_process %(current_table_name,'running',pipeline_id,sample_id, filename_input,task_id)
-
         if(run_dry):
             print(query)
         else:
@@ -138,7 +138,7 @@ def step_picard(pg_conn,pipeline_id,task_id,next_task_id,current_table_name, nex
         date=datetime.datetime.today().strftime('%Y-%m-%d')
 
 
-        query_update= sample_update_add_process %(current_table_name,'done',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id,filename_input,task_id)
+        query_update= sample_update_add_process %(current_table_name,'done',date,int(elapse),dir_output_db,filename_output,pipeline_id,sample_id,filename_input,task_id)
         query_check = sample_selection % (current_table_name,pipeline_id, 'pending',task_id)
 
         if(run_dry):
@@ -153,8 +153,8 @@ def step_picard(pg_conn,pipeline_id,task_id,next_task_id,current_table_name, nex
         # step_init = 0
         run_time_next = 0
 
-        query_insert = query_insert_next_step % (next_table_name , pipeline_id,next_task_id,sample_id, dir_output, filename_output,'null','null','pending', date, run_time_next,trimmed_quality)
-        query_update = query_update_next_step % (next_table_name, dir_output, filename_output,'null','null','pending', date, run_time_next,trimmed_quality, filename_output,pipeline_id,next_task_id,sample_id)
+        query_insert = query_insert_next_step % (next_table_name , pipeline_id,next_task_id,sample_id, dir_output_db, filename_output,'null','null','pending', date, run_time_next,trimmed_quality)
+        query_update = query_update_next_step % (next_table_name, dir_output_db, filename_output,'null','null','pending', date, run_time_next,trimmed_quality, filename_output,pipeline_id,next_task_id,sample_id)
         if(run_dry):
             print(query_insert)
             print(query_update)

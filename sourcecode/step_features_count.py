@@ -7,7 +7,7 @@ import argparse
 
 
 
-def entry_point_features_count(pg_conn,project_code,pipeline_id,task_id,next_task_id,run_dry=True,resetquery=True,one_sample=True):
+def entry_point_features_count(pg_conn,project_code,pipeline_id,task_id,next_task_id,mount_point,run_dry=True,resetquery=True,one_sample=True):
 
     select_option_task = 'SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;'
     select_info_task='SELECT path,command, output_directory, table_name FROM task WHERE task_id=%d'
@@ -24,10 +24,11 @@ def entry_point_features_count(pg_conn,project_code,pipeline_id,task_id,next_tas
 
     path_value  = results_task_query[0][0]
     command     = results_task_query[0][1]
-    output_directory    = results_task_query[0][2]
+    output_directory_db    = results_task_query[0][2]
     current_table_name = results_task_query[0][3]
 
-    output_directory = ('{}/{}').format(output_directory, project_code)
+    output_directory_db = ('{}/{}').format(output_directory_db, project_code)
+    output_directory = ('{}{}').format(mount_point[:-1],output_directory_db)
     if(not os.path.exists(output_directory)):
         os.mkdir(output_directory)
 
@@ -37,17 +38,17 @@ def entry_point_features_count(pg_conn,project_code,pipeline_id,task_id,next_tas
         results_task_query = pg_conn.execute(query).fetchall()
         next_table_name = results_task_query[0][3]
         print(next_table_name)
-        step_features_count(pg_conn, pipeline_id,task_id,next_task_id,current_table_name, path_value,command,output_directory,run_dry,resetquery,one_sample)
+        step_features_count(pg_conn, pipeline_id,task_id,next_task_id,current_table_name, path_value,command,output_directory,output_directory_db,mount_point,run_dry,resetquery,one_sample)
         #call the right function here!
     else:
         print('LAST step')
-        step_features_count(pg_conn, pipeline_id,task_id,current_table_name,path_value,command,output_directory,run_dry,resetquery,one_sample)
+        step_features_count(pg_conn, pipeline_id,task_id,current_table_name,path_value,command,output_directory,output_directory_db,mount_point,run_dry,resetquery,one_sample)
 
 
 
 
 
-def step_features_count(pg_conn,pipeline_id,task_id,table_name,path_value,command,output_folder, run_dry=True,resetquery=True,one_sample=True):
+def step_features_count(pg_conn,pipeline_id,task_id,table_name,path_value,command,output_folder,output_folder_db,mount_point,run_dry=True,resetquery=True,one_sample=True):
 
 #to check
     select_option_features_count ='SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;'
@@ -88,7 +89,7 @@ def step_features_count(pg_conn,pipeline_id,task_id,table_name,path_value,comman
         trimmed_quality = sample[3]
         file_extension  = sample[4]
 
-        samplefile = '{dirinput}/{filename_input}'.format(dirinput=dir_input,filename_input=filename_input)
+        samplefile = '{mount_point}{dirinput}/{filename_input}'.format(mount_point=mount_point,dirinput=dir_input,filename_input=filename_input)
         if(file_extension == 'bai'):
             samplefile=samplefile.replace('bai','bam')
         elif(samplefile.split('.')[-1] == 'bam'):
@@ -99,8 +100,10 @@ def step_features_count(pg_conn,pipeline_id,task_id,table_name,path_value,comman
 
         if(trimmed_quality == 0):
             dir_output='{}/{}'.format(output_folder, sample_id)
+            dir_output_db='{}/{}'.format(output_folder_db, sample_id)
         else:
             dir_output='{}/{}_trimmed_q{}'.format(output_folder,sample_id ,trimmed_quality)
+            dir_output_db='{}/{}_trimmed_q{}'.format(output_folder_db,sample_id ,trimmed_quality)
 
         if(not os.path.exists(dir_output)):
             try:
@@ -139,7 +142,7 @@ def step_features_count(pg_conn,pipeline_id,task_id,table_name,path_value,comman
         date=datetime.datetime.today().strftime('%Y-%m-%d')
 
         status = 'done'
-        query_update= sample_update_finish_process % (table_name,status,date,int(elapse),dir_output,pipeline_id,sample_id, filename_input,task_id)
+        query_update= sample_update_finish_process % (table_name,status,date,int(elapse),dir_output_db,pipeline_id,sample_id, filename_input,task_id)
         status = 'pending'
         query_check = sample_selection % (table_name,pipeline_id, status,task_id)
 

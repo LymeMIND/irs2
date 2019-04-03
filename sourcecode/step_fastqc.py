@@ -7,7 +7,7 @@ import argparse
 
 
 
-def entry_point_fastqc(pg_conn,project_code,pipeline_id,task_id,next_task_id,run_dry=True,resetquery=True,one_sample=True):
+def entry_point_fastqc(pg_conn,project_code,pipeline_id,task_id,next_task_id,mount_point,run_dry=True,resetquery=True,one_sample=True):
 
     select_option_task = 'SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;'
     select_info_task='SELECT path,command, output_directory, table_name FROM task WHERE task_id=%d'
@@ -24,26 +24,25 @@ def entry_point_fastqc(pg_conn,project_code,pipeline_id,task_id,next_task_id,run
 
     path_value  = results_task_query[0][0]
     command     = results_task_query[0][1]
-    output_directory    = results_task_query[0][2]
+    output_directory_db    = results_task_query[0][2]
     current_table_name = results_task_query[0][3]
 
-    output_directory = ('{}/{}').format(output_directory, project_code)
+    output_directory_db = ('{}/{}').format(output_directory_db, project_code)
+    output_directory = ('{}{}').format(mount_point[:-1],output_directory_db)
     if(not os.path.exists(output_directory)):
         os.mkdir(output_directory)
-
-
 
     if(next_task_id != -1):
         query = select_info_task % (next_task_id)
         results_task_query = pg_conn.execute(query).fetchall()
         next_table_name = results_task_query[0][3]
-        step_fastqc(pg_conn, pipeline_id,task_id,next_task_id,current_table_name, next_table_name,path_value,command,output_directory, run_dry,resetquery,one_sample)
+        step_fastqc(pg_conn, pipeline_id,task_id,next_task_id,current_table_name, next_table_name,path_value,command,output_directory,output_directory_db,mount_point,run_dry,resetquery,one_sample)
         #call the right function here!
     else:
         print('LAST step')
 
 
-def step_fastqc(pg_conn,pipeline_id,task_id,next_task_id, current_table,next_table,path,command,output_directory, run_dry=True,resetquery=True,one_sample=True):
+def step_fastqc(pg_conn,pipeline_id,task_id,next_task_id, current_table,next_table,path,command,output_directory,output_directory_db,mount_point,run_dry=True,resetquery=True,one_sample=True):
 
     select_option_fastqc ='SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;' % (task_id)
     options = pg_conn.execute(select_option_fastqc).fetchall()
@@ -88,23 +87,23 @@ def step_fastqc(pg_conn,pipeline_id,task_id,next_task_id, current_table,next_tab
         filename_input  = sample[2]
         end_type        = sample[3]
 
-        samplefile = ('%s/%s/%s') % (dir_input,sample_id,filename_input)
-        query = sample_update_process %(current_table, 'running',pipeline_id,sample_id, filename_input,task_id)
-
-        if(run_dry):
-            print(query)
-        else:
-            pg_conn.execute(query)
-
 
         sample2run = ' '.join([task_program, options_template])
 
 
+        dir2check = ('{}{}/{}').format(mount_point,dir_input,sample_id)
         if(end_type =='single'):
+            query = sample_update_process %(current_table, 'running',pipeline_id,sample_id, filename_input,task_id)
+            if(run_dry):
+                print(query)
+            else:
+                pg_conn.execute(query)
+
+            samplefile = ('{}/{}').format(dir2check,filename_input)
             filenames_input  = [samplefile]
             only_filename   = [filename_input]
         else:
-            dir2check = ('%s/%s') % (dir_input,sample_id)
+
 
             query2run = query_select_paired %( current_table,pipeline_id,task_id,sample_id)
             samples_paired = pg_conn.execute(query2run).fetchall()
@@ -112,7 +111,13 @@ def step_fastqc(pg_conn,pipeline_id,task_id,next_task_id, current_table,next_tab
             only_filename   = []
             for ff in samples_paired:
                 filenames_input.append(os.path.join(dir2check, ff[0]))
-                only_filename.append(filename_input)
+                only_filename.append(ff[0])
+                query = sample_update_process %(current_table, 'running',pipeline_id,sample_id, ff[0],task_id)
+                if(run_dry):
+                    print(query)
+                else:
+                    pg_conn.execute(query)
+
         input_fastqc = ' '.join(filenames_input)
         output_fastqc = ' -o {}'.format(output_directory)
 
@@ -129,10 +134,11 @@ def step_fastqc(pg_conn,pipeline_id,task_id,next_task_id, current_table,next_tab
         date    = datetime.datetime.today().strftime('%Y-%m-%d')
         run_time_next   = 0
         trimmed_quality = 0
-        for filename_output in only_filename:
 
-            filename_output = filename_output.split('.')[0]+'_fastqc.html'
-            query_update= sample_update_add_process % (current_table,'done',date,int(elapse),output_directory ,filename_output ,pipeline_id,sample_id, filename_input,task_id)
+        for filename_input in only_filename:
+
+            filename_output = filename_input.split('.')[0]+'_fastqc.html'
+            query_update= sample_update_add_process % (current_table,'done',date,int(elapse),output_directory_db ,filename_output ,pipeline_id,sample_id, filename_input,task_id)
             if(run_dry):
                 print(query_update)
             else:

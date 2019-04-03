@@ -21,7 +21,7 @@ import argparse
 #     print(end_type)
 #     print(cmd)
 
-def update_database_file(project,path,end_type,cmd=False):
+def update_database_file(project,path_samples,end_type,server_path,cmd=False):
     print('main')
     pg_user             = os.environ.get('DB_USER_LYME')
     pg_password         = os.environ['DB_PASSWORD_LYME']
@@ -36,12 +36,12 @@ def update_database_file(project,path,end_type,cmd=False):
     insert_template = 'INSERT INTO file_info (sample_id, filename, directory, file_size, project_code, end_type)'\
     ' VALUES (\'%s\',\'%s\',\'%s\',%f,\'%s\',\'%s\');'
 
-    test_dir = path
-    if(os.path.isdir(test_dir)):
-        print(test_dir)
-        for sample in os.listdir(test_dir):
-            print(sample)
-            filenames = [filename for filename in os.listdir(os.path.join(test_dir, sample)) if(not os.path.isdir(os.path.join(test_dir,sample,filename)) and
+
+    dirprefix= '/{}/'.format(path_samples.replace(server_path,''))
+
+    if(os.path.isdir(path_samples)):
+        for sample in os.listdir(path_samples):
+            filenames = [filename for filename in os.listdir(os.path.join(path_samples, sample)) if(not os.path.isdir(os.path.join(path_samples,sample,filename)) and
             (filename.split('.')[-1] == 'fastq' or (filename.split('.')[-2] == 'fastq' and filename.split('.')[-1] == 'gz')))]
 
             #check if exist concat
@@ -54,16 +54,15 @@ def update_database_file(project,path,end_type,cmd=False):
                     break
             # print(len(filenames_tmp))
             for filename in filenames_tmp:
-                if(not os.path.isdir(os.path.join(test_dir,sample,filename))):
+                if(not os.path.isdir(os.path.join(path_samples,sample,filename))):
                     substrings = filename.split('.')
                     if(len(substrings) > 1):
                         if(substrings[-1] == 'fastq' or (substrings[-2] == 'fastq' and substrings[-1] == 'gz')):
 
-                            full_filename = os.path.join(test_dir,sample,filename)
+                            full_filename = os.path.join(path_samples,sample,filename)
                             filesize = round(os.path.getsize(full_filename)/float(1024*1024*1024),2)
-                            query = insert_template % (sample, filename,test_dir,filesize, project, end_type)
+                            query = insert_template % (sample, filename,dirprefix,filesize, project, end_type)
                             try:
-                                print(filename)
                                 pg_conn.execute(query)
                             except Exception as e:
                                 print('SAMPLE ALREADY INCLUDED')

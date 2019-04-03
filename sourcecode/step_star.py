@@ -7,7 +7,7 @@ import argparse
 
 
 
-def entry_point_star(pg_conn,project_code, pipeline_id,task_id,next_task_id,run_dry=True,resetquery=True,one_sample=True):
+def entry_point_star(pg_conn,project_code, pipeline_id,task_id,next_task_id,mount_point,run_dry=True,resetquery=True,one_sample=True):
 
     select_option_task  = 'SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;'
     select_info_task    ='SELECT path,command, output_directory,table_name FROM task WHERE task_id=%d'
@@ -22,12 +22,13 @@ def entry_point_star(pg_conn,project_code, pipeline_id,task_id,next_task_id,run_
 
     path                = results_task_query[0][0]
     command             = results_task_query[0][1]
-    output_directory    = results_task_query[0][2]
+    output_directory_db    = results_task_query[0][2]
     current_table_name  = results_task_query[0][3]
 
 
     #CHECK IF EXIST
-    output_directory = ('{}/{}').format(output_directory, project_code)
+    output_directory_db = ('{}/{}').format(output_directory_db, project_code)
+    output_directory = ('{}{}').format(mount_point[:-1],output_directory_db)
     if(not os.path.exists(output_directory)):
         os.mkdir(output_directory)
 
@@ -35,7 +36,7 @@ def entry_point_star(pg_conn,project_code, pipeline_id,task_id,next_task_id,run_
         query = select_info_task % (next_task_id)
         results_task_query = pg_conn.execute(query).fetchall()
         next_table_name = results_task_query[0][3]
-        step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table_name, next_table_name,path,command,output_directory, run_dry,resetquery,one_sample)
+        step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table_name, next_table_name,path,command,output_directory,output_directory_db,mount_point,run_dry,resetquery,one_sample)
         #call the right function here!
     else:
         print('LAST step')
@@ -57,7 +58,7 @@ def checkoutput(dir_output,sample_id):
 
 
 
-def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_table,path,command,output_folder,run_dry=True,resetquery=True,one_sample=True):
+def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_table,path,command,output_folder,output_folder_db,mount_point,run_dry=True,resetquery=True,one_sample=True):
 
 
     select_option_star='SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;' % (task_id)
@@ -102,15 +103,14 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
         qc              = sample[4]
         trimmed_quality = sample[5]
 
-        samplefile = ('%s/%s/%s') % (dir_input,sample_id,filename_input)
-        print(samplefile)
-
 
         if(qc == 'passed'):
             dir_output=('%s/%s') % (output_folder, sample_id)
+            dir_output_db=('%s/%s') % (output_folder_db, sample_id)
             ctrl = 1
         elif(qc =='trimmed'):
-            dir_output = ('%s/%s_trimmed_q%d') % (output_folder, sample_id,trimmed_quality)
+            dir_output      = ('%s%s/%s_trimmed_q%d') % (output_folder, sample_id,trimmed_quality)
+            dir_output_db   = ('%s/%s_trimmed_q%d') % (output_folder_db, sample_id,trimmed_quality)
             ctrl = 1
 
         if(ctrl == 1):
@@ -132,8 +132,10 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
             output_samplefile = '{}/{}'.format(dir_output,sample[0])
             sample2run = ' '.join([task_program, options_template])
 
-            #TO CHANGE!
+            dir2check = ('%s%s/%s') % (mount_point[:-1],dir_input,sample_id)
             if(end_type =='single'):
+                samplefile = ('%s/%s') % (dir2check,filename_input)
+
                 query=sample_update_process %(current_table, 'running',pipeline_id,sample_id, filename_input,task_id)
                 if(run_dry):
                     print(query)
@@ -141,7 +143,7 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
                     pg_conn.execute(query)
                 options_change  = '--readFilesIn {input} --outFileNamePrefix {output}'.format(input=samplefile,output=output_samplefile)
             else:
-                dir2check = ('%s/%s') % (dir_input,sample_id)
+
                 query2run = query_select_paired %(current_table, pipeline_id,task_id,sample_id)
                 samples_paired = pg_conn.execute(query2run).fetchall()
                 filenames = [ ]
@@ -158,12 +160,11 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
             sample2run=' '.join([sample2run, options_change])
 
             start_time = time.time()
-            print(sample2run)
+
 
             if(not run_dry):
+                print(sample2run)
                 os.system(sample2run)
-
-
             elapse=time.time() - start_time
             print(elapse)
             date=datetime.datetime.today().strftime('%Y-%m-%d')
@@ -183,24 +184,28 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
 
 
                 if(end_type =='single'):
-                    query_update= sample_update_add_process %(current_table,'done',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, filename_input,task_id)
+                    query_update= sample_update_add_process %(current_table,'done',date,int(elapse),dir_output_db ,filename_output,pipeline_id,sample_id, filename_input,task_id)
                     if(run_dry):
                         print(query_update)
                     else:
                         pg_conn.execute(query_update)
                 elif(end_type =='double'):
-                    for ff in filenames:
-                        query_update= sample_update_add_process %(current_table,'done',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, ff,task_id)
+                    for ff in samples_paired:
+                        query_update= sample_update_add_process %(current_table,'done',date,int(elapse),dir_output_db ,filename_output,pipeline_id,sample_id, ff[0],task_id)
                         if(run_dry):
                             print(query_update)
                         else:
-                            pg_conn.execute(query_update)
+                            try:
+                                print(query_update)
+                                pg_conn.execute(query_update)
+                            except Exception as e:
+                                print(e)
 
                 #ADD SAMPLE TO PICARD1
                 #INSERT OR UPDATE
                 run_time_next = 0
-                query_insert = query_insert_next_step % (next_table, pipeline_id,next_task_id,sample_id, dir_output, filename_output,'null','null','pending', date, run_time_next, trimmed_quality)
-                query_update = query_update_next_step % (next_table,dir_output, filename_output,'null','null','pending', date, run_time_next,trimmed_quality ,filename_output,pipeline_id,next_task_id,sample_id)
+                query_insert = query_insert_next_step % (next_table, pipeline_id,next_task_id,sample_id, dir_output_db, filename_output,'null','null','pending', date, run_time_next, trimmed_quality)
+                query_update = query_update_next_step % (next_table,dir_output_db, filename_output,'null','null','pending', date, run_time_next,trimmed_quality ,filename_output,pipeline_id,next_task_id,sample_id)
                 if(run_dry):
                     print(query_insert)
                     print(query_update)
@@ -214,7 +219,7 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
                             print(e)
             else:
 
-                query_update= sample_update_add_process %(current_table,'error',date,int(elapse),dir_output ,filename_output,pipeline_id,sample_id, filename_input,task_id)
+                query_update= sample_update_add_process %(current_table,'error',date,int(elapse),dir_output_db ,filename_output,pipeline_id,sample_id, filename_input,task_id)
                 if(run_dry):
                     print(query_update)
                 else:

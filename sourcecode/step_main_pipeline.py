@@ -15,7 +15,7 @@ from step_features_count import entry_point_features_count
 ####
 
 
-def run_pipeline(project_code, pipeline_id,run_dry=True,resetquery=True,one_sample=True):
+def run_pipeline(project_code, pipeline_id,mount_point,run_dry=True,resetquery=True,one_sample=True):
 
     pg_user             = os.environ.get('DB_USER_LYME')
     pg_password         = os.environ['DB_PASSWORD_LYME']
@@ -43,7 +43,7 @@ def run_pipeline(project_code, pipeline_id,run_dry=True,resetquery=True,one_samp
             print('########################')
             print(function_call)
             print('########################')
-            globals()[function_call](pg_conn,project_code ,pipeline_id,task_id,next_task_id, run_dry,resetquery,one_sample)
+            globals()[function_call](pg_conn,project_code ,pipeline_id,task_id,next_task_id,mount_point,run_dry,resetquery,one_sample)
 
 
 
@@ -55,7 +55,7 @@ def run_pipeline(project_code, pipeline_id,run_dry=True,resetquery=True,one_samp
     print('performe last task')
     print(function_call)
     print('########################')
-    globals()[function_call](pg_conn,project_code ,pipeline_id,task_id,next_task_id, run_dry,resetquery,one_sample)
+    globals()[function_call](pg_conn,project_code ,pipeline_id,task_id,next_task_id,mount_point,run_dry,resetquery,one_sample)
 
 
 if __name__ == '__main__':
