@@ -99,7 +99,7 @@ def step_fastqc(pg_conn,project_code,pipeline_id,task_id,next_task_id, current_t
         sample2run = ' '.join([task_program, options_template])
 
 
-        dir2check = ('{}{}/{}').format(mount_point,dir_input,sample_id)
+        dir2check = ('{}{}{}').format(mount_point[:-1],dir_input,sample_id)
         if(end_type =='single'):
             query = sample_update_process %(current_table, 'running',pipeline_id,sample_id, filename_input,task_id)
             if(run_dry):
@@ -111,8 +111,6 @@ def step_fastqc(pg_conn,project_code,pipeline_id,task_id,next_task_id, current_t
             filenames_input  = [samplefile]
             only_filename   = [filename_input]
         else:
-
-
             query2run = query_select_paired %( current_table,pipeline_id,task_id,sample_id)
             samples_paired = pg_conn.execute(query2run).fetchall()
             filenames_input = []
@@ -153,9 +151,9 @@ def step_fastqc(pg_conn,project_code,pipeline_id,task_id,next_task_id, current_t
                 pg_conn.execute(query_update)
 
             query_insert = query_insert_next_step % (next_table, pipeline_id,next_task_id,sample_id, dir_input, filename_input,'null','null','pending', date, run_time_next, trimmed_quality, end_type)
-            query_update = query_update_next_step % (next_table,dir_input, filenames_input,\
+            query_update = query_update_next_step % (next_table,dir_input, filename_input,\
                                                      'null','null','pending', date, run_time_next,\
-                                                     trimmed_quality ,filenames_input,pipeline_id,\
+                                                     trimmed_quality ,filename_input,pipeline_id,\
                                                      next_task_id,sample_id)
 
             if(run_dry):

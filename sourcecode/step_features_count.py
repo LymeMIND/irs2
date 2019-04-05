@@ -160,7 +160,6 @@ def step_features_count(pg_conn,project_code,pipeline_id,task_id,table_name,path
             pg_conn.execute(query_update)
             samples = pg_conn.execute(query_check).fetchall()
 
-
         update_status_sample = update_status_sample_tmp % ('done', 'features_count', sample_id, project_code)
         pg_conn.execute(update_status_sample)
 

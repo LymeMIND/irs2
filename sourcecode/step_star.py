@@ -139,7 +139,7 @@ def step_star(pg_conn,project_code, pipeline_id,task_id,next_task_id,current_tab
             output_samplefile = '{}/{}'.format(dir_output,sample[0])
             sample2run = ' '.join([task_program, options_template])
 
-            dir2check = ('%s%s/%s') % (mount_point[:-1],dir_input,sample_id)
+            dir2check = ('%s%s%s') % (mount_point[:-1],dir_input,sample_id)
             if(end_type =='single'):
                 samplefile = ('%s/%s') % (dir2check,filename_input)
 
