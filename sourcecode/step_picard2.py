@@ -36,16 +36,19 @@ def entry_point_picard2(pg_conn,project_code ,pipeline_id,task_id,next_task_id,m
         query = select_info_task % (next_task_id)
         results_task_query = pg_conn.execute(query).fetchall()
         next_table_name = results_task_query[0][3]
-        step_picard(pg_conn, pipeline_id,task_id,next_task_id,current_table_name, next_table_name, path, command,output_directory,output_directory_db, mount_point, run_dry,resetquery,one_sample)
+        step_picard(pg_conn,project_code, pipeline_id,task_id,next_task_id,current_table_name, next_table_name, path, command,output_directory,output_directory_db, mount_point, run_dry,resetquery,one_sample)
         #call the right function here!
     else:
         print('LAST step')
 
 
-def step_picard(pg_conn,pipeline_id,task_id,next_task_id,current_table_name,next_table_name,path,command,output_directory,output_directory_db,mount_point,run_dry=True,resetquery=True,one_sample=True):
+def step_picard(pg_conn,project_code,pipeline_id,task_id,next_task_id,current_table_name,next_table_name,path,command,output_directory,output_directory_db,mount_point,run_dry=True,resetquery=True,one_sample=True):
 
     select_option_star='SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;' % (task_id)
     options=pg_conn.execute(select_option_star).fetchall()
+
+
+    update_status_sample_tmp = 'UPDATE file_info SET status=\'%s\', stage_task=\'%s\' WHERE sample_id=\'%s\' AND project_code=\'%s\' '
 
 #to check
     options_test={c.option_name:c.option_value for c in options}
@@ -87,6 +90,9 @@ def step_picard(pg_conn,pipeline_id,task_id,next_task_id,current_table_name,next
 
         samplefile = '{mount_point}{dirinput}/{filename_input}'.format(mount_point=mount_point,dirinput=dir_input,filename_input=filename_input)
 
+
+        update_status_sample = update_status_sample_tmp % ('running', 'picard2', sample_id, project_code)
+        pg_conn.execute(update_status_sample)
 
         if(trimmed_quality == 0):
             dir_output='{}/{}'.format(output_directory, sample_id)

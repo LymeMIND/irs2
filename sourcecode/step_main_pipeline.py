@@ -26,7 +26,11 @@ def run_pipeline(project_code, pipeline_id,mount_point,job_id='None',run_dry=Tru
     pg_conn             = create_engine(pg_conn_str, echo=False, paramstyle='format', pool_recycle=1800)
     #read step for the pipeline
 
-    update_task_tmp ='UPDATE pipeline_jobs SET status=\'%s\', running_time=%d WHERE job_id=\'%s\' AND pipeline_id=%s'
+    update_task_start_tmp ='UPDATE pipeline_jobs SET status=\'%s\' WHERE job_id=\'%s\' AND pipeline_id=%d'
+    update_task_stop_tmp ='UPDATE pipeline_jobs SET status=\'%s\', running_time=%d WHERE job_id=\'%s\' AND pipeline_id=%d'
+
+    update_task_tmp ='UPDATE pipeline_jobs SET running_time=%d, stage_task=\'%s\' WHERE job_id=\'%s\' AND pipeline_id=%d'
+
     select_tasks_pipeline  = 'SELECT pipeline_run_task.task_id, next_task,sequence, func_name, name FROM pipeline_run_task INNER JOIN task ON pipeline_run_task.task_id = task.task_id '\
     'WHERE pipeline_run_task.pipeline_id=%d ORDER BY sequence;' % (pipeline_id)
     task2performe=pg_conn.execute(select_tasks_pipeline).fetchall()
@@ -35,9 +39,11 @@ def run_pipeline(project_code, pipeline_id,mount_point,job_id='None',run_dry=Tru
     start_time = time.time()
 
     if(job_id != 'None'):
-        status= 'started'
-        update_task = update_task_tmp % (status,0,job_id,pipeline_id)
+
+        update_task = update_task_start_tmp % ('running',job_id,pipeline_id)
         pg_conn.execute(update_task)
+        query_update_pipeline = 'UPDATE pipeline SET status=\'running\' WHERE pipeline_id=%d' % (pipeline_id)
+        pg_conn.execute(query_update_pipeline)
 
     for current_task in task2performe:
         if(current_task[1] == -1):
@@ -50,8 +56,8 @@ def run_pipeline(project_code, pipeline_id,mount_point,job_id='None',run_dry=Tru
             name = current_task[-1]
             elapse=time.time() - start_time
             if(job_id != 'None'):
-                status= ('running {}').format(name)
-                update_task = update_task_tmp % (status,elapse,job_id,pipeline_id)
+
+                update_task = update_task_tmp % (elapse,name,job_id,pipeline_id)
                 pg_conn.execute(update_task)
 
             print('########################')
@@ -67,8 +73,8 @@ def run_pipeline(project_code, pipeline_id,mount_point,job_id='None',run_dry=Tru
 
     elapse=time.time() - start_time
     if(job_id != 'None'):
-        status= ('running {}').format(name)
-        update_task = update_task_tmp % (status,elapse,job_id,pipeline_id)
+
+        update_task = update_task_tmp % (elapse,name,job_id,pipeline_id)
         pg_conn.execute(update_task)
     print('########################')
     print('performe last task')
@@ -77,9 +83,11 @@ def run_pipeline(project_code, pipeline_id,mount_point,job_id='None',run_dry=Tru
     globals()[function_call](pg_conn,project_code ,pipeline_id,task_id,next_task_id,mount_point,run_dry,resetquery,one_sample)
     elapse=time.time() - start_time
     if(job_id != 'None'):
-        status= 'done'
-        update_task = update_task_tmp % (status,elapse,job_id,pipeline_id)
+        update_task = update_task_stop_tmp % ('done',elapse,job_id,pipeline_id)
         pg_conn.execute(update_task)
+        #HERE
+        query_update_pipeline = 'UPDATE pipeline SET status=\'done\' WHERE pipeline_id=%d' % (pipeline_id)
+        pg_conn.execute(query_update_pipeline)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

@@ -38,7 +38,7 @@ def entry_point_features_count(pg_conn,project_code,pipeline_id,task_id,next_tas
         results_task_query = pg_conn.execute(query).fetchall()
         next_table_name = results_task_query[0][3]
         print(next_table_name)
-        step_features_count(pg_conn, pipeline_id,task_id,next_task_id,current_table_name, path_value,command,output_directory,output_directory_db,mount_point,run_dry,resetquery,one_sample)
+        step_features_count(pg_conn,project_code ,pipeline_id,task_id,next_task_id,current_table_name, path_value,command,output_directory,output_directory_db,mount_point,run_dry,resetquery,one_sample)
         #call the right function here!
     else:
         print('LAST step')
@@ -48,11 +48,13 @@ def entry_point_features_count(pg_conn,project_code,pipeline_id,task_id,next_tas
 
 
 
-def step_features_count(pg_conn,pipeline_id,task_id,table_name,path_value,command,output_folder,output_folder_db,mount_point,run_dry=True,resetquery=True,one_sample=True):
+def step_features_count(pg_conn,project_code,pipeline_id,task_id,table_name,path_value,command,output_folder,output_folder_db,mount_point,run_dry=True,resetquery=True,one_sample=True):
 
 #to check
-    select_option_features_count ='SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;'
+    select_option_features_count = 'SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;'
 
+
+    update_status_sample_tmp = 'UPDATE file_info SET status=\'%s\', stage_task=\'%s\' WHERE sample_id=\'%s\' AND project_code=\'%s\' '
 ##queries
     sample_selection        = 'SELECT Distinct sample_id, dir_input,filename_input,trimmed_quality, file_extension '\
                           'FROM %s '\
@@ -90,6 +92,11 @@ def step_features_count(pg_conn,pipeline_id,task_id,table_name,path_value,comman
         file_extension  = sample[4]
 
         samplefile = '{mount_point}{dirinput}/{filename_input}'.format(mount_point=mount_point,dirinput=dir_input,filename_input=filename_input)
+
+
+        update_status_sample = update_status_sample_tmp % ('running', 'features_count', sample_id, project_code)
+        pg_conn.execute(update_status_sample)
+
         if(file_extension == 'bai'):
             samplefile=samplefile.replace('bai','bam')
         elif(samplefile.split('.')[-1] == 'bam'):
@@ -152,6 +159,10 @@ def step_features_count(pg_conn,pipeline_id,task_id,table_name,path_value,comman
         else:
             pg_conn.execute(query_update)
             samples = pg_conn.execute(query_check).fetchall()
+
+
+        update_status_sample = update_status_sample_tmp % ('done', 'features_count', sample_id, project_code)
+        pg_conn.execute(update_status_sample)
 
         if(one_sample):
             break

@@ -36,7 +36,7 @@ def entry_point_star(pg_conn,project_code, pipeline_id,task_id,next_task_id,moun
         query = select_info_task % (next_task_id)
         results_task_query = pg_conn.execute(query).fetchall()
         next_table_name = results_task_query[0][3]
-        step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table_name, next_table_name,path,command,output_directory,output_directory_db,mount_point,run_dry,resetquery,one_sample)
+        step_star(pg_conn,project_code, pipeline_id,task_id,next_task_id,current_table_name, next_table_name,path,command,output_directory,output_directory_db,mount_point,run_dry,resetquery,one_sample)
         #call the right function here!
     else:
         print('LAST step')
@@ -58,11 +58,17 @@ def checkoutput(dir_output,sample_id):
 
 
 
-def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_table,path,command,output_folder,output_folder_db,mount_point,run_dry=True,resetquery=True,one_sample=True):
+def step_star(pg_conn,project_code, pipeline_id,task_id,next_task_id,current_table, next_table,path,command,output_folder,output_folder_db,mount_point,run_dry=True,resetquery=True,one_sample=True):
 
 
     select_option_star='SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;' % (task_id)
     options=pg_conn.execute(select_option_star).fetchall()
+
+    update_status_sample_tmp = 'UPDATE file_info SET status=\'%s\', stage_task=\'%s\' WHERE sample_id=\'%s\' AND project_code=\'%s\' '
+##
+#
+##
+
 
 
     options_test={c.option_name:c.option_value for c in options}
@@ -103,6 +109,11 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
         qc              = sample[4]
         trimmed_quality = sample[5]
 
+###
+#UPDATE STATUS FILE
+
+        update_status_sample = update_status_sample_tmp % ('running', 'star', sample_id, project_code)
+        pg_conn.execute(update_status_sample)
 
         if(qc == 'passed'):
             dir_output=('%s/%s') % (output_folder, sample_id)
@@ -165,9 +176,8 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
             if(not run_dry):
                 print(sample2run)
                 os.system(sample2run)
-            elapse=time.time() - start_time
-            print(elapse)
-            date=datetime.datetime.today().strftime('%Y-%m-%d')
+            elapse = time.time() - start_time
+            date = datetime.datetime.today().strftime('%Y-%m-%d')
             #CHECK OUTPUT MAKE SENSE
             if(not run_dry):
                 checkfile_result=checkoutput(dir_output,sample_id)
@@ -196,7 +206,7 @@ def step_star(pg_conn, pipeline_id,task_id,next_task_id,current_table, next_tabl
                             print(query_update)
                         else:
                             try:
-                                print(query_update)
+                                # print(query_update)
                                 pg_conn.execute(query_update)
                             except Exception as e:
                                 print(e)

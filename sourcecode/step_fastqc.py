@@ -36,16 +36,18 @@ def entry_point_fastqc(pg_conn,project_code,pipeline_id,task_id,next_task_id,mou
         query = select_info_task % (next_task_id)
         results_task_query = pg_conn.execute(query).fetchall()
         next_table_name = results_task_query[0][3]
-        step_fastqc(pg_conn, pipeline_id,task_id,next_task_id,current_table_name, next_table_name,path_value,command,output_directory,output_directory_db,mount_point,run_dry,resetquery,one_sample)
-        #call the right function here!
+        step_fastqc(pg_conn,project_code, pipeline_id,task_id,next_task_id,current_table_name, next_table_name,path_value,command,output_directory,output_directory_db,mount_point,run_dry,resetquery,one_sample)
     else:
         print('LAST step')
 
 
-def step_fastqc(pg_conn,pipeline_id,task_id,next_task_id, current_table,next_table,path,command,output_directory,output_directory_db,mount_point,run_dry=True,resetquery=True,one_sample=True):
+def step_fastqc(pg_conn,project_code,pipeline_id,task_id,next_task_id, current_table,next_table,path,command,output_directory,output_directory_db,mount_point,run_dry=True,resetquery=True,one_sample=True):
 
     select_option_fastqc ='SELECT option_name,option_value FROM option INNER JOIN task ON option.task_id = task.task_id WHERE task.task_id=%d;' % (task_id)
     options = pg_conn.execute(select_option_fastqc).fetchall()
+
+
+    update_status_sample_tmp = 'UPDATE file_info SET status=\'%s\', stage_task=\'%s\' WHERE sample_id=\'%s\' AND project_code=\'%s\' '
 
 
     options_test = {c.option_name:c.option_value for c in options}
@@ -87,6 +89,9 @@ def step_fastqc(pg_conn,pipeline_id,task_id,next_task_id, current_table,next_tab
         filename_input  = sample[2]
         end_type        = sample[3]
 
+
+        update_status_sample = update_status_sample_tmp % ('running', 'fastqc', sample_id, project_code)
+        pg_conn.execute(update_status_sample)
 
         sample2run = ' '.join([task_program, options_template])
 
