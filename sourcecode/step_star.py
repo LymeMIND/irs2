@@ -65,10 +65,6 @@ def step_star(pg_conn,project_code, pipeline_id,task_id,next_task_id,current_tab
     options=pg_conn.execute(select_option_star).fetchall()
 
     update_status_sample_tmp = 'UPDATE file_info SET status=\'%s\', stage_task=\'%s\' WHERE sample_id=\'%s\' AND project_code=\'%s\' '
-##
-#
-##
-
 
 
     options_test={c.option_name:c.option_value for c in options}
@@ -221,9 +217,11 @@ def step_star(pg_conn,project_code, pipeline_id,task_id,next_task_id,current_tab
                     print(query_update)
                 else:
                     try:
+                        print(query_insert)
                         pg_conn.execute(query_insert)
                     except Exception as e:
                         try:
+                            print(query_update)
                             pg_conn.execute(query_update)
                         except Exception as e:
                             print(e)

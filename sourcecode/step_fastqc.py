@@ -69,8 +69,11 @@ def step_fastqc(pg_conn,project_code,pipeline_id,task_id,next_task_id, current_t
 
     query_insert_next_step = 'INSERT INTO %s (pipeline_id,task_id,sample_id,dir_input,filename_input,dir_output,filename_output,status,date, run_time, trimmed_quality, end_type,qc ) '\
     'VALUES(%d,%d,\'%s\',\'%s\',\'%s\',\'%s\',\'%s\',\'%s\',\'%s\',%d,%d, \'%s\', \'passed\')'
-    query_update_next_step = 'UPDATE  %s SET dir_input=\'%s\', filename_input=\'%s\', dir_output=\'%s\', filename_output=\'%s\','\
-            ' status=\'%s\' ,date=\'%s\',run_time=\'%s\', trimmed_quality=%d WHERE filename_input=\'%s\' AND pipeline_id=%d AND task_id=%d AND sample_id=\'%s\''
+    query_update_next_step = 'UPDATE  %s SET dir_input=\'%s\', filename_input=\'%s\',' \
+                             'dir_output=\'%s\', filename_output=\'%s\','\
+                              ' status=\'%s\' ,date=\'%s\',run_time=\'%s\', '\
+                              'trimmed_quality=%d WHERE filename_input=\'%s\' '\
+                              'AND pipeline_id=%d AND task_id=%d AND sample_id=\'%s\''
 
     #STAR
     task_program = ''.join([path,command])
@@ -150,7 +153,10 @@ def step_fastqc(pg_conn,project_code,pipeline_id,task_id,next_task_id, current_t
                 pg_conn.execute(query_update)
 
             query_insert = query_insert_next_step % (next_table, pipeline_id,next_task_id,sample_id, dir_input, filename_input,'null','null','pending', date, run_time_next, trimmed_quality, end_type)
-            query_update = query_update_next_step % (next_table,dir_input, filename_output,'null','null','pending', date, run_time_next,trimmed_quality ,filename_output,pipeline_id,next_task_id,sample_id)
+            query_update = query_update_next_step % (next_table,dir_input, filenames_input,\
+                                                     'null','null','pending', date, run_time_next,\
+                                                     trimmed_quality ,filenames_input,pipeline_id,\
+                                                     next_task_id,sample_id)
 
             if(run_dry):
                 print(query_insert)
@@ -160,6 +166,7 @@ def step_fastqc(pg_conn,project_code,pipeline_id,task_id,next_task_id, current_t
                     pg_conn.execute(query_insert)
                 except Exception as e:
                     # print(e)
+                    print(query_update)
                     try:
                         pg_conn.execute(query_update)
                     except Exception as e:

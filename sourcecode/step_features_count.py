@@ -42,7 +42,7 @@ def entry_point_features_count(pg_conn,project_code,pipeline_id,task_id,next_tas
         #call the right function here!
     else:
         print('LAST step')
-        step_features_count(pg_conn, pipeline_id,task_id,current_table_name,path_value,command,output_directory,output_directory_db,mount_point,run_dry,resetquery,one_sample)
+        step_features_count(pg_conn,project_code ,pipeline_id,task_id,current_table_name,path_value,command,output_directory,output_directory_db,mount_point,run_dry,resetquery,one_sample)
 
 
 
