@@ -86,12 +86,14 @@ def run_pipeline(project_code, pipeline_id,mount_point,job_id='None',run_dry=Tru
         query_find_samples_pending ='SELECT COUNT(*) FROM file_info WHERE project_code=\'%s\' AND status=\'pending\'' % (project_code)
         samples_pending = pg_conn.execute(query_find_samples_pending).fetchall()
 
-        if(int(samples_pending[0][0])==0):
-            update_task = update_task_stop_tmp % ('done',elapse,job_id,pipeline_id)
-        else:
-            update_task = update_task_stop_tmp % ('ready',elapse,job_id,pipeline_id)
+        update_task = update_task_stop_tmp % ('done',elapse,job_id,pipeline_id)
         pg_conn.execute(update_task)
-        query_update_pipeline = 'UPDATE pipeline SET status=\'done\' WHERE pipeline_id=%d' % (pipeline_id)
+
+
+        if(int(samples_pending[0][0])==0):
+            query_update_pipeline = 'UPDATE pipeline SET status=\'done\' WHERE pipeline_id=%d' % (pipeline_id)
+        else:
+            query_update_pipeline = 'UPDATE pipeline SET status=\'ready\' WHERE pipeline_id=%d' % (pipeline_id)
         pg_conn.execute(query_update_pipeline)
 
 if __name__ == '__main__':
