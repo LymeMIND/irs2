@@ -27,7 +27,7 @@ def run_pipeline(project_code, pipeline_id,mount_point,job_id='None',run_dry=Tru
     #read step for the pipeline
 
     update_task_start_tmp ='UPDATE pipeline_jobs SET status=\'%s\' WHERE job_id=\'%s\' AND pipeline_id=%d'
-    update_task_stop_tmp ='UPDATE pipeline_jobs SET status=\'%s\', running_time=%d WHERE job_id=\'%s\' AND pipeline_id=%d'
+    update_task_stop_tmp = 'UPDATE pipeline_jobs SET status=\'%s\', running_time=%d WHERE job_id=\'%s\' AND pipeline_id=%d'
 
     update_task_tmp ='UPDATE pipeline_jobs SET running_time=%d, stage_task=\'%s\' WHERE job_id=\'%s\' AND pipeline_id=%d'
 
@@ -83,13 +83,21 @@ def run_pipeline(project_code, pipeline_id,mount_point,job_id='None',run_dry=Tru
     globals()[function_call](pg_conn,project_code ,pipeline_id,task_id,next_task_id,mount_point,run_dry,resetquery,one_sample)
     elapse=time.time() - start_time
     if(job_id != 'None'):
+
+
+        try:
+            update_task = update_task_stop_tmp % ('done',elapse,job_id,pipeline_id)
+            print(update_task)
+            pg_conn.execute(update_task)
+        except Exception as e:
+            print(elapse)
+            print(job_id)
+            print(pipeline_id)
+            pass
+
+
         query_find_samples_pending ='SELECT COUNT(*) FROM file_info WHERE project_code=\'%s\' AND status=\'pending\'' % (project_code)
         samples_pending = pg_conn.execute(query_find_samples_pending).fetchall()
-
-        update_task = update_task_stop_tmp % ('done',elapse,job_id,pipeline_id)
-        pg_conn.execute(update_task)
-
-
         if(int(samples_pending[0][0])==0):
             query_update_pipeline = 'UPDATE pipeline SET status=\'done\' WHERE pipeline_id=%d' % (pipeline_id)
         else:
