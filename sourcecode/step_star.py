@@ -150,7 +150,6 @@ def step_star(pg_conn,project_code, pipeline_id,task_id,next_task_id,current_tab
                     pg_conn.execute(query)
                 options_change  = '--readFilesIn {input} --outFileNamePrefix {output}'.format(input=samplefile,output=output_samplefile)
             else:
-
                 query2run = query_select_paired %(current_table, pipeline_id,task_id,sample_id)
                 samples_paired = pg_conn.execute(query2run).fetchall()
                 filenames = [ ]
@@ -162,7 +161,7 @@ def step_star(pg_conn,project_code, pipeline_id,task_id,next_task_id,current_tab
                     else:
                         pg_conn.execute(query)
 
-                options_change  = '--readFilesIn {input1},{input2} --outFileNamePrefix {output}'.format(input1=filenames[0],input2=filenames[1],output=output_samplefile)
+                options_change  = '--readFilesIn {input1} {input2} --outFileNamePrefix {output}'.format(input1=filenames[0],input2=filenames[1],output=output_samplefile)
 
             sample2run=' '.join([sample2run, options_change])
 

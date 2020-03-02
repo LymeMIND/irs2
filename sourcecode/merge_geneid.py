@@ -45,4 +45,4 @@ if __name__ == '__main__':
     filename_csv='LYME_geneID.csv'
     pipeline_id = 1
     task_id     = 6
-    merge_geneid(pipeline_id,task_id,filename_csv,one_sample=False)
+    merge_geneid(pipeline_id,task_id,filename_csv)
